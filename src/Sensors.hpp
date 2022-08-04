@@ -17,8 +17,8 @@
 #include <s8_uart.h>
 #include <sps30.h>
 
-#define CSL_VERSION "0.5.6"
-#define CSL_REVISION 362
+#define CSL_VERSION "0.5.7"
+#define CSL_REVISION 363
 
 /**************************************************************
  *                          GEIGER
