@@ -1074,7 +1074,7 @@ bool Sensors::sensorSerialInit(int pms_type, int pms_rx, int pms_tx) {
         DEBUG("-->[SLIB] UART detecting type\t: SENSEAIRS8");
         if (!serialInit(pms_type, 9600, pms_rx, pms_tx)) return false;
     } else if (pms_type == SENSORS::IKEAVK) {
-        DEBUG("-->[SLIB] UART detecting type\t: SENSEAIRS8");
+        DEBUG("-->[SLIB] UART detecting type\t: IKEAVK");
         if (!serialInit(pms_type, 9600, pms_rx, pms_tx)) return false;
     }
 
