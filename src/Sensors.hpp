@@ -17,9 +17,9 @@
 #include <s8_uart.h>
 #include <sps30.h>
 #include <drivers/pm1006.h>
-#include <drivers/DFRobot_MultiGasSensor.h>
+#include <DFRobot_MultiGasSensor.h>
 
-#define CSL_VERSION "0.5.9.1"
+#define CSL_VERSION "0.6.0"
 #define CSL_REVISION 366.1
 
 /***************************************************************
