@@ -1,6 +1,7 @@
 #ifndef Sensors_hpp
 #define Sensors_hpp
 
+#include <Arduino.h>
 #include <AHTxx.h>
 #include <AM232X.h>
 #include <Adafruit_BME280.h>
@@ -21,6 +22,17 @@
 #include <drivers/pm1006.h>
 #include <s8_uart.h>
 #include <sps30.h>
+
+#if defined(ARDUINO_ARCH_ESP32) &&                                              \
+    (defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || \
+     defined(CONFIG_IDF_TARGET_ESP32S3) || defined(ARDUINO_ESP32C3_DEV) ||       \
+     defined(ARDUINO_ESP32S2_DEV) || defined(ARDUINO_ESP32S3_DEV) ||            \
+     defined(ARDUINO_LOLIN_C3_MINI) || defined(ARDUINO_LOLIN_S2_MINI) ||        \
+     defined(ARDUINO_LOLIN_S3_MINI) || defined(ESP32C3) || defined(ESP32S2) ||  \
+     defined(ESP32S3))
+#define CSL_NOISE_SENSOR_SUPPORTED 1
+#include <NoiseSensor.h>
+#endif
 
 #ifdef DHT11_ENABLED
 #include <dht_nonblocking.h>
@@ -138,6 +150,12 @@
   X(VOCI, "voci", "VOCI")    \
   X(NOX, "nox", "NOX")       \
   X(VOC, "voc", "VOC")       \
+  X(NOISE, "dB", "Noise")    \
+  X(NOISEAVG, "dB", "NoiseAvg") \
+  X(NOISEPEAK, "dB", "NoisePeak") \
+  X(NOISEMIN, "dB", "NoiseMin") \
+  X(NOISEAVGLEGAL, "dB", "NoiseAvgLegal") \
+  X(NOISEAVGLEGALMAX, "dB", "NoiseAvgLegalMax") \
   X(UCOUNT, "COUNT", "UCOUNT")
 
 #define X(unit, symbol, name) unit,
@@ -171,6 +189,7 @@ typedef enum UNIT : size_t { SENSOR_UNITS } UNIT;
   X(SDFRO3, "DFRO3", 3)   \
   X(SCAJOE, "CAJOE", 3)   \
   X(SSGP41, "SGP41", 3)   \
+  X(SNOISE, "NOISE", 3)   \
   X(SCOUNT, "SCOUNT", 3)
 
 #define X(utype, uname, umaintype) utype,
@@ -340,6 +359,20 @@ class Sensors {
 
   void enableGeigerSensor(int gpio);
 
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+  float getNoise();
+
+  float getNoiseAverage();
+
+  float getNoisePeak();
+
+  float getNoiseMin();
+
+  float getNoiseLegalAverage();
+
+  float getNoiseLegalMaximum();
+#endif
+
   uint32_t getGeigerCPM(void);
 
   float getGeigerMicroSievertHour(void);
@@ -450,6 +483,21 @@ class Sensors {
   float co;   // Carbon monoxide in ppm
   float no2;  // Nitrogen dioxide in ppm
   float o3;   // Ozone in ppm
+
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+  NoiseSensor noiseSensor;
+  NoiseSensor::Measurements noiseMeasurements;
+#endif
+  bool noiseSensorEnabled = false;
+  bool noiseSensorCycleReady = false;
+  int noiseAdcPin = 4;
+  float noiseInstant = 0.0;
+  float noiseAvgValue = 0.0;
+  float noisePeakValue = 0.0;
+  float noiseMinValue = 0.0;
+  float noiseAvgLegalValue = 0.0;
+  float noiseAvgLegalMaxValue = 0.0;
+  float noiseBaseline = 1.0;
 
   void am2320Init();
   void am2320Read();
@@ -564,6 +612,13 @@ class Sensors {
   void unitRegister(UNIT unit);
 
   uint8_t *getUnitsRegistered();
+
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+  bool noiseSensorAutoDetect();
+  void noiseSensorService();
+  void noiseSensorCollect();
+  float noiseMvToDb(float value, float reference) const;
+#endif
 
 // @todo use DEBUG_ESP_PORT ?
 #ifdef WM_DEBUG_PORT

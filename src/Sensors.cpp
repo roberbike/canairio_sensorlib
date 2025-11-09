@@ -1,5 +1,7 @@
 #include "Sensors.hpp"
 
+#include <math.h>
+
 // Units and sensors registers
 
 #define X(unit, symbol, name) symbol,
@@ -31,6 +33,9 @@ uint8_t sensors_registered[SCOUNT];
  * All sensors are read here, please call it on main loop.
  */
 void Sensors::loop() {
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+  noiseSensorService();
+#endif
   static uint32_t pmLoopTimeStamp = 0;  // timestamp for sensor loop check data
   if ((millis() - pmLoopTimeStamp >
        sample_time * (uint32_t)1000)) {  // sample time for each capture
@@ -84,6 +89,10 @@ bool Sensors::readAllSensors() {
   DFRobotO3Read();
   geigerRead();
   sgp41Read();
+
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+  noiseSensorCollect();
+#endif
 
 #ifdef DHT11_ENABLED
   dhtRead();
@@ -142,6 +151,10 @@ void Sensors::init(u_int pms_type, int pms_rx, int pms_tx) {
   DFRobotNO2Init();
   DFRobotO3Init();
   sgp41Init();
+
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+  noiseSensorAutoDetect();
+#endif
 
 #ifdef DHT11_ENABLED
   dhtInit();
@@ -418,6 +431,20 @@ float Sensors::getNO2() { return no2; }
 /// get O3 value in ppm
 float Sensors::getO3() { return o3; }
 
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+float Sensors::getNoise() { return noiseInstant; }
+
+float Sensors::getNoiseAverage() { return noiseAvgValue; }
+
+float Sensors::getNoisePeak() { return noisePeakValue; }
+
+float Sensors::getNoiseMin() { return noiseMinValue; }
+
+float Sensors::getNoiseLegalAverage() { return noiseAvgLegalValue; }
+
+float Sensors::getNoiseLegalMaximum() { return noiseAvgLegalMaxValue; }
+#endif
+
 /**
  * @brief UART only: check if the UART sensor is registered
  * @return bool true if the UART sensor is registered, false otherwise.
@@ -633,6 +660,18 @@ float Sensors::getUnitValue(UNIT unit) {
       return no2;
     case O3:
       return o3;
+    case NOISE:
+      return noiseInstant;
+    case NOISEAVG:
+      return noiseAvgValue;
+    case NOISEPEAK:
+      return noisePeakValue;
+    case NOISEMIN:
+      return noiseMinValue;
+    case NOISEAVGLEGAL:
+      return noiseAvgLegalValue;
+    case NOISEAVGLEGALMAX:
+      return noiseAvgLegalMaxValue;
     default:
       return 0.0;
   }
@@ -1195,6 +1234,104 @@ void Sensors::DFRobotO3Read() {
   o3 = dfrO3.readGasConcentrationPPM();
   unitRegister(UNIT::O3);
 }
+
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+bool Sensors::noiseSensorAutoDetect() {
+  if (i2conly) return false;
+  if (noiseSensorEnabled) return true;
+
+  const int candidatePins[] = {4};
+  for (int pin : candidatePins) {
+    uint16_t minValue = 4095;
+    uint16_t maxValue = 0;
+    uint32_t sumValue = 0;
+    const uint8_t samples = 48;
+    for (uint8_t i = 0; i < samples; i++) {
+      uint16_t value = analogReadMilliVolts(pin);
+      if (value < minValue) minValue = value;
+      if (value > maxValue) maxValue = value;
+      sumValue += value;
+      delay(2);
+    }
+    float averageValue = sumValue / (float)samples;
+    uint16_t span = maxValue - minValue;
+    if (maxValue < 25) continue;
+    if (minValue < 5) continue;
+    if (maxValue > 3200) continue;
+    if (averageValue < 25.0f || averageValue > 3000.0f) continue;
+    if (span < 15 || span > 1500) continue;
+
+    NoiseSensor::Config config;
+    config.adcPin = pin;
+    noiseSensor = NoiseSensor(config);
+    noiseSensor.begin();
+    noiseAdcPin = pin;
+    noiseSensorEnabled = true;
+    noiseSensorCycleReady = false;
+    noiseBaseline = averageValue;
+    sensorAnnounce(SENSORS::SNOISE);
+    sensorRegister(SENSORS::SNOISE);
+    DEBUG("-->[SLIB] Noise sensor detect:\t", "ok");
+    return true;
+  }
+
+  DEBUG("-->[SLIB] Noise sensor detect:\t", "not found");
+  return false;
+}
+
+void Sensors::noiseSensorService() {
+  if (!noiseSensorEnabled) return;
+
+  noiseSensor.update();
+  const NoiseSensor::Measurements &m = noiseSensor.getMeasurements();
+  noiseBaseline = max((float)m.lowNoiseLevel, 1.0f);
+  noiseInstant = noiseMvToDb(m.noise, noiseBaseline);
+  noiseAvgLegalValue = noiseMvToDb(m.noiseAvgLegal, noiseBaseline);
+  float legalMaxDb = noiseMvToDb(m.noiseAvgLegalMax, noiseBaseline);
+  if (legalMaxDb > noiseAvgLegalMaxValue) {
+    noiseAvgLegalMaxValue = legalMaxDb;
+  }
+
+  if (noiseSensor.isCycleComplete()) {
+    noiseMeasurements = m;
+    noiseSensor.resetCycle();
+    noiseSensorCycleReady = true;
+  }
+}
+
+void Sensors::noiseSensorCollect() {
+  if (!noiseSensorEnabled) return;
+
+  unitRegister(UNIT::NOISE);
+  dataReady = true;
+
+  if (!noiseSensorCycleReady) return;
+
+  float measurementBaseline = max((float)noiseMeasurements.lowNoiseLevel, 1.0f);
+  noiseAvgValue = noiseMvToDb(noiseMeasurements.noiseAvg, measurementBaseline);
+  noisePeakValue = noiseMvToDb(noiseMeasurements.noisePeak, measurementBaseline);
+  noiseMinValue = noiseMvToDb(noiseMeasurements.noiseMin, measurementBaseline);
+  noiseAvgLegalValue = noiseMvToDb(noiseMeasurements.noiseAvgLegal, measurementBaseline);
+  noiseAvgLegalMaxValue = noiseMvToDb(noiseMeasurements.noiseAvgLegalMax, measurementBaseline);
+
+  unitRegister(UNIT::NOISEAVG);
+  unitRegister(UNIT::NOISEPEAK);
+  unitRegister(UNIT::NOISEMIN);
+  unitRegister(UNIT::NOISEAVGLEGAL);
+  unitRegister(UNIT::NOISEAVGLEGALMAX);
+
+  noiseSensorCycleReady = false;
+}
+
+float Sensors::noiseMvToDb(float value, float reference) const {
+  if (value <= 0.0f || reference <= 0.0f) return 0.0f;
+  float ratio = value / reference;
+  if (ratio <= 0.0f) return 0.0f;
+  float db = 20.0f * log10f(ratio);
+  if (!isfinite(db) || db < 0.0f) return 0.0f;
+  return db;
+}
+#endif
 
 #ifdef DHT11_ENABLED
 DHT_nonblocking dht_sensor(DHT_SENSOR_PIN, DHT_SENSOR_TYPE);
@@ -2013,6 +2150,16 @@ void Sensors::resetAllVariables() {
   co = 0;
   no2 = 0.0;
   o3 = 0.0;
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+  noiseInstant = 0.0;
+  noiseAvgValue = 0.0;
+  noisePeakValue = 0.0;
+  noiseMinValue = 0.0;
+  noiseAvgLegalValue = 0.0;
+  noiseAvgLegalMaxValue = 0.0;
+  noiseSensorCycleReady = false;
+  noiseBaseline = 1.0;
+#endif
   if (rad != nullptr) rad->clear();
 }
 
