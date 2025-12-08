@@ -1255,11 +1255,11 @@ bool Sensors::noiseSensorAutoDetect() {
     }
     float averageValue = sumValue / (float)samples;
     uint16_t span = maxValue - minValue;
-    if (maxValue < 25) continue;
-    if (minValue < 5) continue;
+    if (maxValue < 15) continue;
+    if (minValue < 2) continue;
     if (maxValue > 3200) continue;
-    if (averageValue < 25.0f || averageValue > 3000.0f) continue;
-    if (span < 15 || span > 1500) continue;
+    if (averageValue < 15.0f || averageValue > 3000.0f) continue;
+    if (span < 10 || span > 1500) continue;
 
     NoiseSensor::Config config;
     config.adcPin = pin;
