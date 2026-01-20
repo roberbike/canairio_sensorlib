@@ -55,13 +55,13 @@ Panasonic via UART in ESP8266 maybe needs select in detection.
 | DFRobot SEN0466 CO | i2c |  Auto | TESTING |
 | DFRobot SEN0471 NO2 | i2c |  Auto | TESTING |
 | Geiger CAJOE | GPIO | Select | TESTING |
-| NoiseSensor (ADC) | ADC |  Auto | TESTING |
+| NoiseSensor (I2C slave) | I2C |  Auto | TESTING |
 | DHTxx       | TwoWire |  Select | DISABLED |
 
 NOTE:  
 DHT22 is supported but is not recommended. Please see the documentation.  
 
-NoiseSensor auto-detection uses the ADC on GPIO4 and is available only on ESP32-C3, ESP32-S2 and ESP32-S3 targets.
+NoiseSensor auto-detection usa el mismo bus I2C que el resto de sensores (Wire) y está disponible solo en ESP32-C3, ESP32-S2 y ESP32-S3.
 
 ### Platforms supported
 
@@ -89,7 +89,7 @@ NoiseSensor auto-detection uses the ADC on GPIO4 and is available only on ESP32-
 - Unified calibration trigger for all CO2 sensors
 - Unified CO2 Altitude compensation
 - Unified temperature offset for CO2 and environment sensors
-- Automatic ADC NoiseSensor integration with LAeq, PMI and peak/min tracking on ESP32-C3/S2/S3 (salidas en dB con validación del sensor)
+- Automatic I2C NoiseSensor integration with LAeq, PMI and peak/min tracking on ESP32-C3/S2/S3 (salidas en dB con validación del sensor)
 - Add support for Kelvin and Fahrenheit on environment and CO2 sensors
 - Public access to main objects of each library (full methods access)
 - Get unit symbol and name and each sub-sensor
@@ -98,7 +98,7 @@ NoiseSensor auto-detection uses the ADC on GPIO4 and is available only on ESP32-
 
 ### NoiseSensor readings (ESP32-C3/S2/S3)
 
-When the NoiseSensor module is detected through the ADC (default GPIO4), the library exposes dedicated helpers:
+When the NoiseSensor module is detected via I2C on the main bus (Wire), the library exposes dedicated helpers:
 
 - `getNoise()` – instantaneous reading in dB (referenciado al nivel base)
 - `getNoiseAverage()` / `getNoisePeak()` / `getNoiseMin()` – estadísticas LAeq por ciclo en dB

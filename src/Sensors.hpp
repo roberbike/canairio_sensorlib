@@ -22,6 +22,7 @@
 #include <drivers/pm1006.h>
 #include <s8_uart.h>
 #include <sps30.h>
+#include <Wire.h>
 
 #if defined(ARDUINO_ARCH_ESP32) &&                                              \
     (defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || \
@@ -31,7 +32,6 @@
      defined(ARDUINO_LOLIN_S3_MINI) || defined(ESP32C3) || defined(ESP32S2) ||  \
      defined(ESP32S3))
 #define CSL_NOISE_SENSOR_SUPPORTED 1
-#include <NoiseSensor.h>
 #endif
 
 #ifdef DHT11_ENABLED
@@ -114,6 +114,7 @@
 #define I2C1_SDA_PIN 8
 #define I2C1_SCL_PIN 9
 #endif
+
 
 // Read UART sensor retry.
 #define SENSOR_RETRY 1000  // Max Serial characters
@@ -434,6 +435,32 @@ class Sensors {
   void startI2C();
 
  private:
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+  static constexpr uint8_t NOISE_SENSOR_TYPE = 0x01;
+  static constexpr uint8_t NOISE_I2C_CMD_GET_DATA = 0x01;
+  static constexpr uint8_t NOISE_I2C_CMD_PING = 0x09;
+  static constexpr uint8_t NOISE_I2C_MIN_ADDRESS = 0x08;
+  static constexpr uint8_t NOISE_I2C_MAX_ADDRESS = 0x77;
+
+  struct NoiseSensorIdentity {
+    uint8_t sensorType;
+    uint8_t versionMajor;
+    uint8_t versionMinor;
+    uint8_t status;
+    uint8_t i2cAddress;
+  } __attribute__((packed));
+
+  struct NoiseSensorData {
+    float noise;
+    float noiseAvg;
+    float noisePeak;
+    float noiseMin;
+    float noiseAvgLegal;
+    float noiseAvgLegalMax;
+    uint16_t lowNoiseLevel;
+    uint32_t cycles;
+  };
+#endif
 #ifdef DHT11_ENABLED
   /// DHT library
   uint32_t delayMS;
@@ -485,12 +512,12 @@ class Sensors {
   float o3;   // Ozone in ppm
 
 #ifdef CSL_NOISE_SENSOR_SUPPORTED
-  NoiseSensor noiseSensor;
-  NoiseSensor::Measurements noiseMeasurements;
+  TwoWire *noiseWire = nullptr;
+  NoiseSensorData noiseSensorData{};
+  bool noiseWireReady = false;
+  uint8_t noiseSensorAddress = 0;
 #endif
   bool noiseSensorEnabled = false;
-  bool noiseSensorCycleReady = false;
-  int noiseAdcPin = 4;
   float noiseInstant = 0.0;
   float noiseAvgValue = 0.0;
   float noisePeakValue = 0.0;
@@ -498,6 +525,7 @@ class Sensors {
   float noiseAvgLegalValue = 0.0;
   float noiseAvgLegalMaxValue = 0.0;
   float noiseBaseline = 1.0;
+  unsigned long noiseLastScan = 0;
 
   void am2320Init();
   void am2320Read();
@@ -617,6 +645,10 @@ class Sensors {
   bool noiseSensorAutoDetect();
   void noiseSensorService();
   void noiseSensorCollect();
+  bool noiseSensorReadIdentity(TwoWire &wire, uint8_t address, NoiseSensorIdentity &out);
+  bool noiseSensorReadData(TwoWire &wire, uint8_t address, NoiseSensorData &out);
+  bool noiseSensorDevicePresent(TwoWire &wire, uint8_t address);
+  void noiseSensorInitWire();
   float noiseMvToDb(float value, float reference) const;
 #endif
 

@@ -22,7 +22,7 @@ char const *sensors_device_names[] = {SENSORS_TYPES};
 int sensors_device_types[] = {SENSORS_TYPES};
 #undef X
 
-uint8_t sensors_registered[SCOUNT];
+uint8_t sensors_registered[SCOUNT]; 
 
 /***********************************************************************************
  *  P U B L I C   M E T H O D S
@@ -1240,35 +1240,21 @@ bool Sensors::noiseSensorAutoDetect() {
   if (i2conly) return false;
   if (noiseSensorEnabled) return true;
 
-  const int candidatePins[] = {4};
-  for (int pin : candidatePins) {
-    uint16_t minValue = 4095;
-    uint16_t maxValue = 0;
-    uint32_t sumValue = 0;
-    const uint8_t samples = 48;
-    for (uint8_t i = 0; i < samples; i++) {
-      uint16_t value = analogReadMilliVolts(pin);
-      if (value < minValue) minValue = value;
-      if (value > maxValue) maxValue = value;
-      sumValue += value;
-      delay(2);
-    }
-    float averageValue = sumValue / (float)samples;
-    uint16_t span = maxValue - minValue;
-    if (maxValue < 15) continue;
-    if (minValue < 2) continue;
-    if (maxValue > 3200) continue;
-    if (averageValue < 15.0f || averageValue > 3000.0f) continue;
-    if (span < 10 || span > 1500) continue;
+  noiseSensorInitWire();
+  if (noiseWire == nullptr) {
+    DEBUG("-->[SLIB] Noise sensor detect:\t", "no i2c");
+    return false;
+  }
 
-    NoiseSensor::Config config;
-    config.adcPin = pin;
-    noiseSensor = NoiseSensor(config);
-    noiseSensor.begin();
-    noiseAdcPin = pin;
+  for (uint8_t addr = NOISE_I2C_MIN_ADDRESS; addr <= NOISE_I2C_MAX_ADDRESS; addr++) {
+    if (!noiseSensorDevicePresent(*noiseWire, addr)) continue;
+
+    NoiseSensorIdentity identity{};
+    if (!noiseSensorReadIdentity(*noiseWire, addr, identity)) continue;
+    if (identity.sensorType != NOISE_SENSOR_TYPE) continue;
+
     noiseSensorEnabled = true;
-    noiseSensorCycleReady = false;
-    noiseBaseline = averageValue;
+    noiseSensorAddress = addr;
     sensorAnnounce(SENSORS::SNOISE);
     sensorRegister(SENSORS::SNOISE);
     DEBUG("-->[SLIB] Noise sensor detect:\t", "ok");
@@ -1280,47 +1266,81 @@ bool Sensors::noiseSensorAutoDetect() {
 }
 
 void Sensors::noiseSensorService() {
-  if (!noiseSensorEnabled) return;
+  if (noiseSensorEnabled) return;
 
-  noiseSensor.update();
-  const NoiseSensor::Measurements &m = noiseSensor.getMeasurements();
-  noiseBaseline = max((float)m.lowNoiseLevel, 1.0f);
-  noiseInstant = noiseMvToDb(m.noise, noiseBaseline);
-  noiseAvgLegalValue = noiseMvToDb(m.noiseAvgLegal, noiseBaseline);
-  float legalMaxDb = noiseMvToDb(m.noiseAvgLegalMax, noiseBaseline);
-  if (legalMaxDb > noiseAvgLegalMaxValue) {
-    noiseAvgLegalMaxValue = legalMaxDb;
-  }
-
-  if (noiseSensor.isCycleComplete()) {
-    noiseMeasurements = m;
-    noiseSensor.resetCycle();
-    noiseSensorCycleReady = true;
-  }
+  unsigned long now = millis();
+  if (now - noiseLastScan < 5000) return;
+  noiseLastScan = now;
+  noiseSensorAutoDetect();
 }
 
 void Sensors::noiseSensorCollect() {
   if (!noiseSensorEnabled) return;
 
+  if (noiseWire == nullptr || noiseSensorAddress == 0) return;
+  if (!noiseSensorDevicePresent(*noiseWire, noiseSensorAddress)) {
+    noiseSensorEnabled = false;
+    noiseSensorAddress = 0;
+    return;
+  }
+
+  if (!noiseSensorReadData(*noiseWire, noiseSensorAddress, noiseSensorData)) {
+    return;
+  }
+
+  float measurementBaseline = max((float)noiseSensorData.lowNoiseLevel, 1.0f);
+  noiseBaseline = measurementBaseline;
+  noiseInstant = noiseMvToDb(noiseSensorData.noise, measurementBaseline);
+  noiseAvgValue = noiseMvToDb(noiseSensorData.noiseAvg, measurementBaseline);
+  noisePeakValue = noiseMvToDb(noiseSensorData.noisePeak, measurementBaseline);
+  noiseMinValue = noiseMvToDb(noiseSensorData.noiseMin, measurementBaseline);
+  noiseAvgLegalValue = noiseMvToDb(noiseSensorData.noiseAvgLegal, measurementBaseline);
+  noiseAvgLegalMaxValue = noiseMvToDb(noiseSensorData.noiseAvgLegalMax, measurementBaseline);
+
   unitRegister(UNIT::NOISE);
   dataReady = true;
-
-  if (!noiseSensorCycleReady) return;
-
-  float measurementBaseline = max((float)noiseMeasurements.lowNoiseLevel, 1.0f);
-  noiseAvgValue = noiseMvToDb(noiseMeasurements.noiseAvg, measurementBaseline);
-  noisePeakValue = noiseMvToDb(noiseMeasurements.noisePeak, measurementBaseline);
-  noiseMinValue = noiseMvToDb(noiseMeasurements.noiseMin, measurementBaseline);
-  noiseAvgLegalValue = noiseMvToDb(noiseMeasurements.noiseAvgLegal, measurementBaseline);
-  noiseAvgLegalMaxValue = noiseMvToDb(noiseMeasurements.noiseAvgLegalMax, measurementBaseline);
 
   unitRegister(UNIT::NOISEAVG);
   unitRegister(UNIT::NOISEPEAK);
   unitRegister(UNIT::NOISEMIN);
   unitRegister(UNIT::NOISEAVGLEGAL);
   unitRegister(UNIT::NOISEAVGLEGALMAX);
+}
 
-  noiseSensorCycleReady = false;
+bool Sensors::noiseSensorReadIdentity(TwoWire &wire, uint8_t address, NoiseSensorIdentity &out) {
+  wire.beginTransmission(address);
+  wire.write(NOISE_I2C_CMD_PING);
+  if (wire.endTransmission() != 0) return false;
+
+  uint8_t got = wire.requestFrom(address, (uint8_t)sizeof(NoiseSensorIdentity));
+  if (got != sizeof(NoiseSensorIdentity)) return false;
+
+  wire.readBytes(reinterpret_cast<uint8_t *>(&out), sizeof(NoiseSensorIdentity));
+  return true;
+}
+
+bool Sensors::noiseSensorReadData(TwoWire &wire, uint8_t address, NoiseSensorData &out) {
+  wire.beginTransmission(address);
+  wire.write(NOISE_I2C_CMD_GET_DATA);
+  if (wire.endTransmission() != 0) return false;
+
+  uint8_t got = wire.requestFrom(address, (uint8_t)sizeof(NoiseSensorData));
+  if (got != sizeof(NoiseSensorData)) return false;
+
+  wire.readBytes(reinterpret_cast<uint8_t *>(&out), sizeof(NoiseSensorData));
+  return true;
+}
+
+bool Sensors::noiseSensorDevicePresent(TwoWire &wire, uint8_t address) {
+  wire.beginTransmission(address);
+  return (wire.endTransmission() == 0);
+}
+
+void Sensors::noiseSensorInitWire() {
+  if (noiseWireReady) return;
+
+  noiseWire = &Wire;
+  noiseWireReady = true;
 }
 
 float Sensors::noiseMvToDb(float value, float reference) const {
@@ -2157,7 +2177,6 @@ void Sensors::resetAllVariables() {
   noiseMinValue = 0.0;
   noiseAvgLegalValue = 0.0;
   noiseAvgLegalMaxValue = 0.0;
-  noiseSensorCycleReady = false;
   noiseBaseline = 1.0;
 #endif
   if (rad != nullptr) rad->clear();
