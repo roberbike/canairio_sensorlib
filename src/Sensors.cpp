@@ -1239,6 +1239,8 @@ void Sensors::DFRobotO3Read() {
 bool Sensors::noiseSensorAutoDetect() {
   if (i2conly) return false;
   if (noiseSensorEnabled) return true;
+  if (noiseScanDone) return false;
+  noiseScanDone = true;
 
   noiseSensorInitWire();
   if (noiseWire == nullptr) {
@@ -1246,15 +1248,9 @@ bool Sensors::noiseSensorAutoDetect() {
     return false;
   }
 
-  for (uint8_t addr = NOISE_I2C_MIN_ADDRESS; addr <= NOISE_I2C_MAX_ADDRESS; addr++) {
-    if (!noiseSensorDevicePresent(*noiseWire, addr)) continue;
-
-    NoiseSensorIdentity identity{};
-    if (!noiseSensorReadIdentity(*noiseWire, addr, identity)) continue;
-    if (identity.sensorType != NOISE_SENSOR_TYPE) continue;
-
+  noiseSlave.begin(noiseWire);
+  if (noiseSlave.detect()) {
     noiseSensorEnabled = true;
-    noiseSensorAddress = addr;
     sensorAnnounce(SENSORS::SNOISE);
     sensorRegister(SENSORS::SNOISE);
     DEBUG("-->[SLIB] Noise sensor detect:\t", "ok");
@@ -1266,36 +1262,28 @@ bool Sensors::noiseSensorAutoDetect() {
 }
 
 void Sensors::noiseSensorService() {
-  if (noiseSensorEnabled) return;
-
-  unsigned long now = millis();
-  if (now - noiseLastScan < 5000) return;
-  noiseLastScan = now;
+  if (noiseSensorEnabled || noiseScanDone) return;
   noiseSensorAutoDetect();
 }
 
 void Sensors::noiseSensorCollect() {
   if (!noiseSensorEnabled) return;
 
-  if (noiseWire == nullptr || noiseSensorAddress == 0) return;
-  if (!noiseSensorDevicePresent(*noiseWire, noiseSensorAddress)) {
+  if (noiseWire == nullptr) return;
+  if (!noiseSlave.isDetected()) {
     noiseSensorEnabled = false;
-    noiseSensorAddress = 0;
     return;
   }
 
-  if (!noiseSensorReadData(*noiseWire, noiseSensorAddress, noiseSensorData)) {
+  if (!noiseSlave.readData(noiseSensorData)) {
     return;
   }
-
-  float measurementBaseline = max((float)noiseSensorData.lowNoiseLevel, 1.0f);
-  noiseBaseline = measurementBaseline;
-  noiseInstant = noiseMvToDb(noiseSensorData.noise, measurementBaseline);
-  noiseAvgValue = noiseMvToDb(noiseSensorData.noiseAvg, measurementBaseline);
-  noisePeakValue = noiseMvToDb(noiseSensorData.noisePeak, measurementBaseline);
-  noiseMinValue = noiseMvToDb(noiseSensorData.noiseMin, measurementBaseline);
-  noiseAvgLegalValue = noiseMvToDb(noiseSensorData.noiseAvgLegal, measurementBaseline);
-  noiseAvgLegalMaxValue = noiseMvToDb(noiseSensorData.noiseAvgLegalMax, measurementBaseline);
+  noiseInstant = noiseSensorData.noise;
+  noiseAvgValue = noiseSensorData.noiseAvg;
+  noisePeakValue = noiseSensorData.noisePeak;
+  noiseMinValue = noiseSensorData.noiseMin;
+  noiseAvgLegalValue = noiseSensorData.noiseAvgLegal;
+  noiseAvgLegalMaxValue = noiseSensorData.noiseAvgLegalMax;
 
   unitRegister(UNIT::NOISE);
   dataReady = true;
@@ -1307,49 +1295,11 @@ void Sensors::noiseSensorCollect() {
   unitRegister(UNIT::NOISEAVGLEGALMAX);
 }
 
-bool Sensors::noiseSensorReadIdentity(TwoWire &wire, uint8_t address, NoiseSensorIdentity &out) {
-  wire.beginTransmission(address);
-  wire.write(NOISE_I2C_CMD_PING);
-  if (wire.endTransmission() != 0) return false;
-
-  uint8_t got = wire.requestFrom(address, (uint8_t)sizeof(NoiseSensorIdentity));
-  if (got != sizeof(NoiseSensorIdentity)) return false;
-
-  wire.readBytes(reinterpret_cast<uint8_t *>(&out), sizeof(NoiseSensorIdentity));
-  return true;
-}
-
-bool Sensors::noiseSensorReadData(TwoWire &wire, uint8_t address, NoiseSensorData &out) {
-  wire.beginTransmission(address);
-  wire.write(NOISE_I2C_CMD_GET_DATA);
-  if (wire.endTransmission() != 0) return false;
-
-  uint8_t got = wire.requestFrom(address, (uint8_t)sizeof(NoiseSensorData));
-  if (got != sizeof(NoiseSensorData)) return false;
-
-  wire.readBytes(reinterpret_cast<uint8_t *>(&out), sizeof(NoiseSensorData));
-  return true;
-}
-
-bool Sensors::noiseSensorDevicePresent(TwoWire &wire, uint8_t address) {
-  wire.beginTransmission(address);
-  return (wire.endTransmission() == 0);
-}
-
 void Sensors::noiseSensorInitWire() {
   if (noiseWireReady) return;
 
   noiseWire = &Wire;
   noiseWireReady = true;
-}
-
-float Sensors::noiseMvToDb(float value, float reference) const {
-  if (value <= 0.0f || reference <= 0.0f) return 0.0f;
-  float ratio = value / reference;
-  if (ratio <= 0.0f) return 0.0f;
-  float db = 20.0f * log10f(ratio);
-  if (!isfinite(db) || db < 0.0f) return 0.0f;
-  return db;
 }
 #endif
 
@@ -2177,7 +2127,6 @@ void Sensors::resetAllVariables() {
   noiseMinValue = 0.0;
   noiseAvgLegalValue = 0.0;
   noiseAvgLegalMaxValue = 0.0;
-  noiseBaseline = 1.0;
 #endif
   if (rad != nullptr) rad->clear();
 }

@@ -89,7 +89,7 @@ NoiseSensor auto-detection usa el mismo bus I2C que el resto de sensores (Wire) 
 - Unified calibration trigger for all CO2 sensors
 - Unified CO2 Altitude compensation
 - Unified temperature offset for CO2 and environment sensors
-- Automatic I2C NoiseSensor integration with LAeq, PMI and peak/min tracking on ESP32-C3/S2/S3 (salidas en dB con validación del sensor)
+- Automatic I2C NoiseSensor integration with LAeq, PMI and peak/min tracking on ESP32-C3/S2/S3 (salidas en mV con validación del sensor)
 - Add support for Kelvin and Fahrenheit on environment and CO2 sensors
 - Public access to main objects of each library (full methods access)
 - Get unit symbol and name and each sub-sensor
@@ -100,9 +100,9 @@ NoiseSensor auto-detection usa el mismo bus I2C que el resto de sensores (Wire) 
 
 When the NoiseSensor module is detected via I2C on the main bus (Wire), the library exposes dedicated helpers:
 
-- `getNoise()` – instantaneous reading in dB (referenciado al nivel base)
-- `getNoiseAverage()` / `getNoisePeak()` / `getNoiseMin()` – estadísticas LAeq por ciclo en dB
-- `getNoiseLegalAverage()` / `getNoiseLegalMaximum()` – promedios legales en dB
+- `getNoise()` – lectura instantánea en mV
+- `getNoiseAverage()` / `getNoisePeak()` / `getNoiseMin()` – estadísticas LAeq por ciclo en mV
+- `getNoiseLegalAverage()` / `getNoiseLegalMaximum()` – promedios legales en mV
 
 Units are registered automatically so they are available for multivariable dashboards alongside the rest of the sensors.
 

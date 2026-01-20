@@ -19,6 +19,7 @@
 #include <cm1106_uart.h>
 #include <drivers/PMS5003T.h>
 #include <drivers/geiger.h>
+#include <drivers/Noise_Sensor_Slave.h>
 #include <drivers/pm1006.h>
 #include <s8_uart.h>
 #include <sps30.h>
@@ -436,30 +437,7 @@ class Sensors {
 
  private:
 #ifdef CSL_NOISE_SENSOR_SUPPORTED
-  static constexpr uint8_t NOISE_SENSOR_TYPE = 0x01;
-  static constexpr uint8_t NOISE_I2C_CMD_GET_DATA = 0x01;
-  static constexpr uint8_t NOISE_I2C_CMD_PING = 0x09;
-  static constexpr uint8_t NOISE_I2C_MIN_ADDRESS = 0x08;
-  static constexpr uint8_t NOISE_I2C_MAX_ADDRESS = 0x77;
-
-  struct NoiseSensorIdentity {
-    uint8_t sensorType;
-    uint8_t versionMajor;
-    uint8_t versionMinor;
-    uint8_t status;
-    uint8_t i2cAddress;
-  } __attribute__((packed));
-
-  struct NoiseSensorData {
-    float noise;
-    float noiseAvg;
-    float noisePeak;
-    float noiseMin;
-    float noiseAvgLegal;
-    float noiseAvgLegalMax;
-    uint16_t lowNoiseLevel;
-    uint32_t cycles;
-  };
+  NoiseSensorSlave noiseSlave;
 #endif
 #ifdef DHT11_ENABLED
   /// DHT library
@@ -513,9 +491,8 @@ class Sensors {
 
 #ifdef CSL_NOISE_SENSOR_SUPPORTED
   TwoWire *noiseWire = nullptr;
-  NoiseSensorData noiseSensorData{};
+  NoiseSensorSlave::Data noiseSensorData{};
   bool noiseWireReady = false;
-  uint8_t noiseSensorAddress = 0;
 #endif
   bool noiseSensorEnabled = false;
   float noiseInstant = 0.0;
@@ -524,8 +501,7 @@ class Sensors {
   float noiseMinValue = 0.0;
   float noiseAvgLegalValue = 0.0;
   float noiseAvgLegalMaxValue = 0.0;
-  float noiseBaseline = 1.0;
-  unsigned long noiseLastScan = 0;
+  bool noiseScanDone = false;
 
   void am2320Init();
   void am2320Read();
@@ -645,11 +621,7 @@ class Sensors {
   bool noiseSensorAutoDetect();
   void noiseSensorService();
   void noiseSensorCollect();
-  bool noiseSensorReadIdentity(TwoWire &wire, uint8_t address, NoiseSensorIdentity &out);
-  bool noiseSensorReadData(TwoWire &wire, uint8_t address, NoiseSensorData &out);
-  bool noiseSensorDevicePresent(TwoWire &wire, uint8_t address);
   void noiseSensorInitWire();
-  float noiseMvToDb(float value, float reference) const;
 #endif
 
 // @todo use DEBUG_ESP_PORT ?
