@@ -1,0 +1,32 @@
+{
+  "name": "NoiseSensorI2CSlave",
+  "version": "1.0.0",
+  "description": "Librería para usar un sensor de ruido como esclavo I2C en ESP32",
+  "keywords": [
+    "i2c",
+    "sensor",
+    "noise",
+    "esp32",
+    "slave"
+  ],
+  "authors": [
+    {
+      "name": "Roberto Fernandez @roberbike",
+      "email": "roberbike@gmail.com"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roberbike/ruido_i2c_slave"
+  },
+  "license": "GPL-3.0-or-later",
+  "frameworks": "arduino",
+  "platforms": "espressif32",
+  "dependencies": [
+    {
+      "name": "roberbike/NoiseSensor",
+      "version": "^1.0.1"
+    }
+  ]
+}
+
