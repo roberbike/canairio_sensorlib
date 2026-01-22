@@ -19,7 +19,7 @@
 #include <cm1106_uart.h>
 #include <drivers/PMS5003T.h>
 #include <drivers/geiger.h>
-#include <drivers/Noise_Sensor_Slave.h>
+#include <NoiseSensorI2CSlave.h>
 #include <drivers/pm1006.h>
 #include <s8_uart.h>
 #include <sps30.h>
@@ -436,9 +436,6 @@ class Sensors {
   void startI2C();
 
  private:
-#ifdef CSL_NOISE_SENSOR_SUPPORTED
-  NoiseSensorSlave noiseSlave;
-#endif
 #ifdef DHT11_ENABLED
   /// DHT library
   uint32_t delayMS;
@@ -491,8 +488,12 @@ class Sensors {
 
 #ifdef CSL_NOISE_SENSOR_SUPPORTED
   TwoWire *noiseWire = nullptr;
-  NoiseSensorSlave::Data noiseSensorData{};
+  SensorData noiseSensorData{};
   bool noiseWireReady = false;
+  uint8_t noiseSensorAddress = 0;
+#if __cplusplus >= 201103L
+  static_assert(sizeof(SensorData) == 32, "SensorData size mismatch");
+#endif
 #endif
   bool noiseSensorEnabled = false;
   float noiseInstant = 0.0;
@@ -621,6 +622,9 @@ class Sensors {
   bool noiseSensorAutoDetect();
   void noiseSensorService();
   void noiseSensorCollect();
+  bool noiseSensorReadIdentity(TwoWire &wire, uint8_t address, SensorIdentity &out);
+  bool noiseSensorReadData(TwoWire &wire, uint8_t address, SensorData &out);
+  bool noiseSensorDevicePresent(TwoWire &wire, uint8_t address);
   void noiseSensorInitWire();
 #endif
 

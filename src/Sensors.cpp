@@ -1248,9 +1248,15 @@ bool Sensors::noiseSensorAutoDetect() {
     return false;
   }
 
-  noiseSlave.begin(noiseWire);
-  if (noiseSlave.detect()) {
+  for (uint8_t addr = MIN_I2C_ADDRESS; addr <= MAX_I2C_ADDRESS; addr++) {
+    if (!noiseSensorDevicePresent(*noiseWire, addr)) continue;
+
+    SensorIdentity identity{};
+    if (!noiseSensorReadIdentity(*noiseWire, addr, identity)) continue;
+    if (identity.sensorType != NoiseSensorI2CSlave::SENSOR_TYPE_NOISE) continue;
+
     noiseSensorEnabled = true;
+    noiseSensorAddress = addr;
     sensorAnnounce(SENSORS::SNOISE);
     sensorRegister(SENSORS::SNOISE);
     DEBUG("-->[SLIB] Noise sensor detect:\t", "ok");
@@ -1269,15 +1275,15 @@ void Sensors::noiseSensorService() {
 void Sensors::noiseSensorCollect() {
   if (!noiseSensorEnabled) return;
 
-  if (noiseWire == nullptr) return;
-  if (!noiseSlave.isDetected()) {
-    noiseSensorEnabled = false;
-    return;
-  }
+  if (noiseWire == nullptr || !noiseSensorEnabled) return;
 
-  if (!noiseSlave.readData(noiseSensorData)) {
+  if (noiseSensorAddress == 0) return;
+  if (!noiseSensorDevicePresent(*noiseWire, noiseSensorAddress)) {
+    noiseSensorEnabled = false;
+    noiseSensorAddress = 0;
     return;
   }
+  if (!noiseSensorReadData(*noiseWire, noiseSensorAddress, noiseSensorData)) return;
   noiseInstant = noiseSensorData.noise;
   noiseAvgValue = noiseSensorData.noiseAvg;
   noisePeakValue = noiseSensorData.noisePeak;
@@ -1293,6 +1299,39 @@ void Sensors::noiseSensorCollect() {
   unitRegister(UNIT::NOISEMIN);
   unitRegister(UNIT::NOISEAVGLEGAL);
   unitRegister(UNIT::NOISEAVGLEGALMAX);
+}
+
+bool Sensors::noiseSensorReadIdentity(TwoWire &wire, uint8_t address, SensorIdentity &out) {
+  wire.beginTransmission(address);
+  wire.write(CMD_PING);
+  if (wire.endTransmission() != 0) return false;
+  delayMicroseconds(200);
+
+  uint8_t got = wire.requestFrom(address, (uint8_t)sizeof(SensorIdentity));
+  if (got != sizeof(SensorIdentity)) return false;
+
+  wire.readBytes(reinterpret_cast<uint8_t *>(&out), sizeof(SensorIdentity));
+  return true;
+}
+
+bool Sensors::noiseSensorReadData(TwoWire &wire, uint8_t address, SensorData &out) {
+  wire.beginTransmission(address);
+  wire.write(CMD_GET_DATA);
+  if (wire.endTransmission() != 0) return false;
+  delayMicroseconds(200);
+
+  uint8_t got = wire.requestFrom(address, (uint8_t)sizeof(SensorData));
+  if (got != sizeof(SensorData)) return false;
+
+  uint8_t buffer[sizeof(SensorData)] = {0};
+  wire.readBytes(buffer, sizeof(SensorData));
+  memcpy(&out, buffer, sizeof(SensorData));
+  return true;
+}
+
+bool Sensors::noiseSensorDevicePresent(TwoWire &wire, uint8_t address) {
+  wire.beginTransmission(address);
+  return (wire.endTransmission() == 0);
 }
 
 void Sensors::noiseSensorInitWire() {
