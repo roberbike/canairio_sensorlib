@@ -19,7 +19,6 @@
 #include <cm1106_uart.h>
 #include <drivers/PMS5003T.h>
 #include <drivers/geiger.h>
-#include <NoiseSensorI2CSlave.h>
 #include <drivers/pm1006.h>
 #include <s8_uart.h>
 #include <sps30.h>
@@ -33,6 +32,10 @@
      defined(ARDUINO_LOLIN_S3_MINI) || defined(ESP32C3) || defined(ESP32S2) ||  \
      defined(ESP32S3))
 #define CSL_NOISE_SENSOR_SUPPORTED 1
+#endif
+
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+#include <NoiseSensorI2CSlave.h>
 #endif
 
 #ifdef DHT11_ENABLED
