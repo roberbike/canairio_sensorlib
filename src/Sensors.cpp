@@ -1237,7 +1237,6 @@ void Sensors::DFRobotO3Read() {
 
 #ifdef CSL_NOISE_SENSOR_SUPPORTED
 bool Sensors::noiseSensorAutoDetect() {
-  if (i2conly) return false;
   if (noiseSensorEnabled) return true;
   if (noiseScanDone) return false;
   noiseScanDone = true;
