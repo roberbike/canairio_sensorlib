@@ -1,5 +1,7 @@
 #include "Sensors.hpp"
 
+#include <math.h>
+
 // Units and sensors registers
 
 #define X(unit, symbol, name) symbol,
@@ -20,7 +22,7 @@ char const *sensors_device_names[] = {SENSORS_TYPES};
 int sensors_device_types[] = {SENSORS_TYPES};
 #undef X
 
-uint8_t sensors_registered[SCOUNT];
+uint8_t sensors_registered[SCOUNT]; 
 
 /***********************************************************************************
  *  P U B L I C   M E T H O D S
@@ -31,6 +33,9 @@ uint8_t sensors_registered[SCOUNT];
  * All sensors are read here, please call it on main loop.
  */
 void Sensors::loop() {
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+  noiseSensorService();
+#endif
   static uint32_t pmLoopTimeStamp = 0;  // timestamp for sensor loop check data
   if ((millis() - pmLoopTimeStamp >
        sample_time * (uint32_t)1000)) {  // sample time for each capture
@@ -84,6 +89,10 @@ bool Sensors::readAllSensors() {
   DFRobotO3Read();
   geigerRead();
   sgp41Read();
+
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+  noiseSensorCollect();
+#endif
 
 #ifdef DHT11_ENABLED
   dhtRead();
@@ -142,6 +151,10 @@ void Sensors::init(u_int pms_type, int pms_rx, int pms_tx) {
   DFRobotNO2Init();
   DFRobotO3Init();
   sgp41Init();
+
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+  noiseSensorAutoDetect();
+#endif
 
 #ifdef DHT11_ENABLED
   dhtInit();
@@ -418,6 +431,20 @@ float Sensors::getNO2() { return no2; }
 /// get O3 value in ppm
 float Sensors::getO3() { return o3; }
 
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+float Sensors::getNoise() { return noiseInstant; }
+
+float Sensors::getNoiseAverage() { return noiseAvgValue; }
+
+float Sensors::getNoisePeak() { return noisePeakValue; }
+
+float Sensors::getNoiseMin() { return noiseMinValue; }
+
+float Sensors::getNoiseLegalAverage() { return noiseAvgLegalValue; }
+
+float Sensors::getNoiseLegalMaximum() { return noiseAvgLegalMaxValue; }
+#endif
+
 /**
  * @brief UART only: check if the UART sensor is registered
  * @return bool true if the UART sensor is registered, false otherwise.
@@ -633,6 +660,18 @@ float Sensors::getUnitValue(UNIT unit) {
       return no2;
     case O3:
       return o3;
+    case NOISE:
+      return noiseInstant;
+    case NOISEAVG:
+      return noiseAvgValue;
+    case NOISEPEAK:
+      return noisePeakValue;
+    case NOISEMIN:
+      return noiseMinValue;
+    case NOISEAVGLEGAL:
+      return noiseAvgLegalValue;
+    case NOISEAVGLEGALMAX:
+      return noiseAvgLegalMaxValue;
     default:
       return 0.0;
   }
@@ -1195,6 +1234,112 @@ void Sensors::DFRobotO3Read() {
   o3 = dfrO3.readGasConcentrationPPM();
   unitRegister(UNIT::O3);
 }
+
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+bool Sensors::noiseSensorAutoDetect() {
+  if (noiseSensorEnabled) return true;
+  if (noiseScanDone) return false;
+  noiseScanDone = true;
+
+  noiseSensorInitWire();
+  if (noiseWire == nullptr) {
+    DEBUG("-->[SLIB] Noise sensor detect:\t", "no i2c");
+    return false;
+  }
+
+  for (uint8_t addr = MIN_I2C_ADDRESS; addr <= MAX_I2C_ADDRESS; addr++) {
+    if (!noiseSensorDevicePresent(*noiseWire, addr)) continue;
+
+    SensorIdentity identity{};
+    if (!noiseSensorReadIdentity(*noiseWire, addr, identity)) continue;
+    if (identity.sensorType != NoiseSensorI2CSlave::SENSOR_TYPE_NOISE) continue;
+
+    noiseSensorEnabled = true;
+    noiseSensorAddress = addr;
+    sensorAnnounce(SENSORS::SNOISE);
+    sensorRegister(SENSORS::SNOISE);
+    DEBUG("-->[SLIB] Noise sensor detect:\t", "ok");
+    return true;
+  }
+
+  DEBUG("-->[SLIB] Noise sensor detect:\t", "not found");
+  return false;
+}
+
+void Sensors::noiseSensorService() {
+  if (noiseSensorEnabled || noiseScanDone) return;
+  noiseSensorAutoDetect();
+}
+
+void Sensors::noiseSensorCollect() {
+  if (!noiseSensorEnabled) return;
+
+  if (noiseWire == nullptr || !noiseSensorEnabled) return;
+
+  if (noiseSensorAddress == 0) return;
+  if (!noiseSensorDevicePresent(*noiseWire, noiseSensorAddress)) {
+    noiseSensorEnabled = false;
+    noiseSensorAddress = 0;
+    return;
+  }
+  if (!noiseSensorReadData(*noiseWire, noiseSensorAddress, noiseSensorData)) return;
+  noiseInstant = noiseSensorData.noise;
+  noiseAvgValue = noiseSensorData.noiseAvg;
+  noisePeakValue = noiseSensorData.noisePeak;
+  noiseMinValue = noiseSensorData.noiseMin;
+  noiseAvgLegalValue = noiseSensorData.noiseAvgLegal;
+  noiseAvgLegalMaxValue = noiseSensorData.noiseAvgLegalMax;
+
+  unitRegister(UNIT::NOISE);
+  dataReady = true;
+
+  unitRegister(UNIT::NOISEAVG);
+  unitRegister(UNIT::NOISEPEAK);
+  unitRegister(UNIT::NOISEMIN);
+  unitRegister(UNIT::NOISEAVGLEGAL);
+  unitRegister(UNIT::NOISEAVGLEGALMAX);
+}
+
+bool Sensors::noiseSensorReadIdentity(TwoWire &wire, uint8_t address, SensorIdentity &out) {
+  wire.beginTransmission(address);
+  wire.write(CMD_PING);
+  if (wire.endTransmission() != 0) return false;
+  delayMicroseconds(200);
+
+  uint8_t got = wire.requestFrom(address, (uint8_t)sizeof(SensorIdentity));
+  if (got != sizeof(SensorIdentity)) return false;
+
+  wire.readBytes(reinterpret_cast<uint8_t *>(&out), sizeof(SensorIdentity));
+  return true;
+}
+
+bool Sensors::noiseSensorReadData(TwoWire &wire, uint8_t address, SensorData &out) {
+  wire.beginTransmission(address);
+  wire.write(CMD_GET_DATA);
+  if (wire.endTransmission() != 0) return false;
+  delayMicroseconds(200);
+
+  uint8_t got = wire.requestFrom(address, (uint8_t)sizeof(SensorData));
+  if (got != sizeof(SensorData)) return false;
+
+  uint8_t buffer[sizeof(SensorData)] = {0};
+  wire.readBytes(buffer, sizeof(SensorData));
+  memcpy(&out, buffer, sizeof(SensorData));
+  return true;
+}
+
+bool Sensors::noiseSensorDevicePresent(TwoWire &wire, uint8_t address) {
+  wire.beginTransmission(address);
+  return (wire.endTransmission() == 0);
+}
+
+void Sensors::noiseSensorInitWire() {
+  if (noiseWireReady) return;
+
+  noiseWire = &Wire;
+  noiseWireReady = true;
+}
+#endif
 
 #ifdef DHT11_ENABLED
 DHT_nonblocking dht_sensor(DHT_SENSOR_PIN, DHT_SENSOR_TYPE);
@@ -2013,6 +2158,14 @@ void Sensors::resetAllVariables() {
   co = 0;
   no2 = 0.0;
   o3 = 0.0;
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+  noiseInstant = 0.0;
+  noiseAvgValue = 0.0;
+  noisePeakValue = 0.0;
+  noiseMinValue = 0.0;
+  noiseAvgLegalValue = 0.0;
+  noiseAvgLegalMaxValue = 0.0;
+#endif
   if (rad != nullptr) rad->clear();
 }
 

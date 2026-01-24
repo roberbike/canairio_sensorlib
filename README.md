@@ -55,10 +55,13 @@ Panasonic via UART in ESP8266 maybe needs select in detection.
 | DFRobot SEN0466 CO | i2c |  Auto | TESTING |
 | DFRobot SEN0471 NO2 | i2c |  Auto | TESTING |
 | Geiger CAJOE | GPIO | Select | TESTING |
+| NoiseSensor (I2C slave) | I2C |  Auto | TESTING |
 | DHTxx       | TwoWire |  Select | DISABLED |
 
 NOTE:  
 DHT22 is supported but is not recommended. Please see the documentation.  
+
+NoiseSensor auto-detection usa el mismo bus I2C que el resto de sensores (Wire) y está disponible solo en ESP32-C3, ESP32-S2 y ESP32-S3.
 
 ### Platforms supported
 
@@ -86,11 +89,22 @@ DHT22 is supported but is not recommended. Please see the documentation.
 - Unified calibration trigger for all CO2 sensors
 - Unified CO2 Altitude compensation
 - Unified temperature offset for CO2 and environment sensors
+- Automatic I2C NoiseSensor integration with LAeq, PMI and peak/min tracking on ESP32-C3/S2/S3 (salidas en mV con validación del sensor)
 - Add support for Kelvin and Fahrenheit on environment and CO2 sensors
 - Public access to main objects of each library (full methods access)
 - Get unit symbol and name and each sub-sensor
 - Get the main group type: NONE, PM, CO2 and ENV.
 - Basic debug mode support toggle in execution
+
+### NoiseSensor readings (ESP32-C3/S2/S3)
+
+When the NoiseSensor module is detected via I2C on the main bus (Wire), the library exposes dedicated helpers:
+
+- `getNoise()` – lectura instantánea en mV
+- `getNoiseAverage()` / `getNoisePeak()` / `getNoiseMin()` – estadísticas LAeq por ciclo en mV
+- `getNoiseLegalAverage()` / `getNoiseLegalMaximum()` – promedios legales en mV
+
+Units are registered automatically so they are available for multivariable dashboards alongside the rest of the sensors.
 
 Full list of all sub libraries supported [here](https://github.com/kike-canaries/canairio_sensorlib/blob/master/unified-lib-deps.ini)
 
