@@ -22,7 +22,7 @@ char const *sensors_device_names[] = {SENSORS_TYPES};
 int sensors_device_types[] = {SENSORS_TYPES};
 #undef X
 
-uint8_t sensors_registered[SCOUNT]; 
+uint8_t sensors_registered[SCOUNT];
 
 /***********************************************************************************
  *  P U B L I C   M E T H O D S
