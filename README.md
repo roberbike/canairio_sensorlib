@@ -100,19 +100,22 @@ NoiseSensor auto-detection uses the same I2C bus as the other sensors (Wire) and
 
 When the NoiseSensor module is detected via I2C on the main bus (Wire), the library exposes dedicated helpers:
 
-- `getNoise()` – lectura instantánea en mV
-- `getNoiseAverage()` / `getNoisePeak()` / `getNoiseMin()` – estadísticas LAeq por ciclo en mV
-- `getNoiseLegalAverage()` / `getNoiseLegalMaximum()` – promedios legales en mV
+- `getNoise()` – instantaneous reading in mV
+- `getNoiseAverage()` / `getNoisePeak()` / `getNoiseMin()` – LAeq statistics per cycle in mV
+- `getNoiseLegalAverage()` / `getNoiseLegalMaximum()` – legal averages in mV
 
 Units are registered automatically so they are available for multivariable dashboards alongside the rest of the sensors.
 
 NOTE:
-Para compilar `examples/noise_sensor_slave` en ESP8266/AtmelSAM se usan librerias locales bajo `lib/` con
-`lib_extra_dirs = ../../lib` en el `platformio.ini` del ejemplo.
-En proyectos externos, el soporte de NoiseSensor es opcional y requiere agregar las dependencias
-`NoiseSensor` y `NoiseSensorI2CSlave` si no estan presentes en el entorno.
-En ESP8266/AtmelSAM, el modo esclavo usa los pines I2C por defecto del core (no configurables en `Config`).
-La placa actua como MASTER I2C y el NoiseSensorI2CSlave corre en el modulo de ruido como ESCLAVO.
+To compile `examples/noise_sensor_slave` on ESP8266/AtmelSAM, local libraries under `lib/` are used with
+`lib_extra_dirs = ../../lib` in the example's `platformio.ini`.
+In external projects, NoiseSensor support is optional and requires adding the dependencies
+`NoiseSensor` and `NoiseSensorI2CSlave` if they are not present in the environment.
+In ESP8266/AtmelSAM, slave mode uses the core's default I2C pins (not configurable in `Config`).
+The board acts as I2C MASTER and NoiseSensorI2CSlave runs on the noise module as SLAVE.
+*** Translated with www.DeepL.com/Translator (free version) ***
+
+
 
 Full list of all sub libraries supported [here](https://github.com/kike-canaries/canairio_sensorlib/blob/master/unified-lib-deps.ini)
 
