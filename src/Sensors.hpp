@@ -136,35 +136,35 @@
 #define SENSOR_COMMS SERIALPORT2
 
 // Sensors units definitions (symbol/name)
-#define SENSOR_UNITS \
+#define SENSOR_UNITS         \
   X(NUNIT, "NUNIT", "NUNIT") \
-  X(PM1, "ug/m3", "PM1") \
-  X(PM25, "ug/m3", "PM2.5") \
-  X(PM4, "ug/m3", "PM4") \
-  X(PM10, "ug/m3", "PM10") \
-  X(TEMP, "C", "T") \
-  X(TEMPK, "K", "T") \
-  X(TEMPF, "F", "T") \
-  X(HUM, "%", "H") \
-  X(CO2, "ppm", "CO2") \
-  X(CO2TEMP, "C", "CO2T") \
-  X(CO2TEMPK, "K", "CO2TK") \
-  X(CO2TEMPF, "F", "CO2TF") \
-  X(CO2HUM, "%", "CO2H") \
-  X(PRESS, "hPa", "P") \
-  X(ALT, "m", "Alt") \
-  X(GAS, "Ohm", "Gas") \
-  X(CPM, "CPM", "RAD") \
-  X(RAD, "uSv/h", "RAD") \
-  X(NH3, "ppm", "NH3") \
-  X(CO, "ppm", "CO") \
-  X(NO2, "ppm", "NO2") \
-  X(O3, "ppm", "O3") \
-  X(NOXI, "noxi", "NOXI") \
-  X(VOCI, "voci", "VOCI") \
-  X(NOX, "nox", "NOX") \
-  X(VOC, "voc", "VOC") \
-  X(NOISE, "dB", "Noise") \
+  X(PM1, "ug/m3", "PM1")     \
+  X(PM25, "ug/m3", "PM2.5")  \
+  X(PM4, "ug/m3", "PM4")     \
+  X(PM10, "ug/m3", "PM10")   \
+  X(TEMP, "C", "T")          \
+  X(TEMPK, "K", "T")         \
+  X(TEMPF, "F", "T")         \
+  X(HUM, "%", "H")           \
+  X(CO2, "ppm", "CO2")       \
+  X(CO2TEMP, "C", "CO2T")    \
+  X(CO2TEMPK, "K", "CO2TK")  \
+  X(CO2TEMPF, "F", "CO2TF")  \
+  X(CO2HUM, "%", "CO2H")     \
+  X(PRESS, "hPa", "P")       \
+  X(ALT, "m", "Alt")         \
+  X(GAS, "Ohm", "Gas")       \
+  X(CPM, "CPM", "RAD")       \
+  X(RAD, "uSv/h", "RAD")     \
+  X(NH3, "ppm", "NH3")       \
+  X(CO, "ppm", "CO")         \
+  X(NO2, "ppm", "NO2")       \
+  X(O3, "ppm", "O3")         \
+  X(NOXI, "noxi", "NOXI")    \
+  X(VOCI, "voci", "VOCI")    \
+  X(NOX, "nox", "NOX")       \
+  X(VOC, "voc", "VOC")       \
+  X(NOISE, "dB", "Noise")    \
   X(NOISEAVG, "dB", "NoiseAvg") \
   X(NOISEPEAK, "dB", "NoisePeak") \
   X(NOISEMIN, "dB", "NoiseMin") \
