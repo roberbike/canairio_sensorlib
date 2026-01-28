@@ -1443,8 +1443,7 @@ bool Sensors::sensorSerialInit(u_int pms_type, int pms_rx, int pms_tx) {
 
   // starting auto detection loop
   int try_sensor_init = 0;
-  while (!pmSensorAutoDetect(pms_type) && try_sensor_init++ < 2)
-    ;
+  while (!pmSensorAutoDetect(pms_type) && try_sensor_init++ < 2);
 
   // get device selected..
   if (dev_uart_type >= 0) {
