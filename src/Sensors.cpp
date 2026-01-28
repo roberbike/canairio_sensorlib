@@ -2255,6 +2255,9 @@ void Sensors::startI2C() {
   Wire.begin(AIRG_SDA, AIRG_SCL);
   delay(1000);
 #endif
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAM)
+  Wire.begin();
+#endif
 }
 
 void Sensors::enableWire1() {

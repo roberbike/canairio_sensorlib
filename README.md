@@ -61,7 +61,7 @@ Panasonic via UART in ESP8266 maybe needs select in detection.
 NOTE:  
 DHT22 is supported but is not recommended. Please see the documentation.  
 
-NoiseSensor auto-detection usa el mismo bus I2C que el resto de sensores (Wire) y está disponible solo en ESP32-C3, ESP32-S2 y ESP32-S3.
+NoiseSensor auto-detection uses the same I2C bus as the other sensors (Wire) and is available on ESP32-C3/S2/S3, ESP8266, and AtmelSAM.
 
 ### Platforms supported
 
@@ -89,14 +89,14 @@ NoiseSensor auto-detection usa el mismo bus I2C que el resto de sensores (Wire) 
 - Unified calibration trigger for all CO2 sensors
 - Unified CO2 Altitude compensation
 - Unified temperature offset for CO2 and environment sensors
-- Automatic I2C NoiseSensor integration with LAeq, PMI and peak/min tracking on ESP32-C3/S2/S3 (salidas en mV con validación del sensor)
+- Automatic I2C NoiseSensor integration with LAeq, PMI and peak/min tracking on ESP32-C3/S2/S3, ESP8266 y AtmelSAM (outputs in mV with sensor validation)
 - Add support for Kelvin and Fahrenheit on environment and CO2 sensors
 - Public access to main objects of each library (full methods access)
 - Get unit symbol and name and each sub-sensor
 - Get the main group type: NONE, PM, CO2 and ENV.
 - Basic debug mode support toggle in execution
 
-### NoiseSensor readings (ESP32-C3/S2/S3)
+### NoiseSensor readings (ESP32-C3/S2/S3, ESP8266 y AtmelSAM)
 
 When the NoiseSensor module is detected via I2C on the main bus (Wire), the library exposes dedicated helpers:
 
@@ -105,6 +105,14 @@ When the NoiseSensor module is detected via I2C on the main bus (Wire), the libr
 - `getNoiseLegalAverage()` / `getNoiseLegalMaximum()` – promedios legales en mV
 
 Units are registered automatically so they are available for multivariable dashboards alongside the rest of the sensors.
+
+NOTE:
+Para compilar `examples/noise_sensor_slave` en ESP8266/AtmelSAM se usan librerias locales bajo `lib/` con
+`lib_extra_dirs = ../../lib` en el `platformio.ini` del ejemplo.
+En proyectos externos, el soporte de NoiseSensor es opcional y requiere agregar las dependencias
+`NoiseSensor` y `NoiseSensorI2CSlave` si no estan presentes en el entorno.
+En ESP8266/AtmelSAM, el modo esclavo usa los pines I2C por defecto del core (no configurables en `Config`).
+La placa actua como MASTER I2C y el NoiseSensorI2CSlave corre en el modulo de ruido como ESCLAVO.
 
 Full list of all sub libraries supported [here](https://github.com/kike-canaries/canairio_sensorlib/blob/master/unified-lib-deps.ini)
 

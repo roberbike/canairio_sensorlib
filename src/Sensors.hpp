@@ -24,18 +24,27 @@
 #include <sps30.h>
 #include <Wire.h>
 
-#if defined(ARDUINO_ARCH_ESP32) &&                                              \
-    (defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || \
-     defined(CONFIG_IDF_TARGET_ESP32S3) || defined(ARDUINO_ESP32C3_DEV) ||       \
-     defined(ARDUINO_ESP32S2_DEV) || defined(ARDUINO_ESP32S3_DEV) ||            \
-     defined(ARDUINO_LOLIN_C3_MINI) || defined(ARDUINO_LOLIN_S2_MINI) ||        \
-     defined(ARDUINO_LOLIN_S3_MINI) || defined(ESP32C3) || defined(ESP32S2) ||  \
-     defined(ESP32S3))
+#if (defined(ARDUINO_ARCH_ESP32) &&                                             \
+     (defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || \
+      defined(CONFIG_IDF_TARGET_ESP32S3) || defined(ARDUINO_ESP32C3_DEV) ||      \
+      defined(ARDUINO_ESP32S2_DEV) || defined(ARDUINO_ESP32S3_DEV) ||           \
+      defined(ARDUINO_LOLIN_C3_MINI) || defined(ARDUINO_LOLIN_S2_MINI) ||       \
+      defined(ARDUINO_LOLIN_S3_MINI) || defined(ESP32C3) || defined(ESP32S2) || \
+      defined(ESP32S3))) ||                                                     \
+    defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAM)
 #define CSL_NOISE_SENSOR_SUPPORTED 1
 #endif
 
 #ifdef CSL_NOISE_SENSOR_SUPPORTED
+#if defined(__has_include)
+#if __has_include(<NoiseSensorI2CSlave.h>)
 #include <NoiseSensorI2CSlave.h>
+#else
+#undef CSL_NOISE_SENSOR_SUPPORTED
+#endif
+#else
+#include <NoiseSensorI2CSlave.h>
+#endif
 #endif
 
 #ifdef DHT11_ENABLED

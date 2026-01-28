@@ -1,13 +1,16 @@
 /**
- * ESP32 (MASTER) - Escaneo y lectura I2C de sensor de ruido
+ * MASTER I2C (placa) - Escaneo y lectura del NoiseSensor esclavo.
+ *
+ * La placa (ESP32/ESP8266/AtmelSAM) actua como MASTER en el bus I2C.
+ * El NoiseSensorI2CSlave es el ESCLAVO y va en el modulo de ruido.
  *
  * Requisitos del usuario:
  * - SDA = GPIO 8
  * - SCL = GPIO 9
- * - Buscar la dirección I2C del sensor y decir si está conectado
+ * - Buscar la direccion I2C del sensor y decir si esta conectado
  *
  * Nota importante (para el problema "muestra valores con el esclavo apagado"):
- * - Este código SOLO imprime datos si el esclavo respondió y llegaron TODOS los bytes esperados.
+ * - Este codigo SOLO imprime datos si el esclavo respondio y llegaron TODOS los bytes esperados.
  * - Si no hay respuesta, no usa datos viejos ni memoria sin inicializar.
  */
 
