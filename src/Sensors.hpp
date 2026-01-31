@@ -1,28 +1,32 @@
 #ifndef Sensors_hpp
 #define Sensors_hpp
 
-#include <AHTxx.h>
-#include <AM232X.h>
-#include <Adafruit_BME280.h>
-#include <Adafruit_BME680.h>
-#include <Adafruit_BMP280.h>
-#include <Adafruit_SCD30.h>
-#include <Adafruit_SHT31.h>
 #include <Adafruit_Sensor.h>
 #include <Arduino.h>
-#include <DFRobot_MultiGasSensor.h>
-#include <MHZ19.h>
-#include <SensirionI2CScd4x.h>
-#include <SensirionI2CSen5x.h>
-#include <SensirionI2CSgp41.h>
-#include <SparkFun_Particle_Sensor_SN-GCJA5_Arduino_Library.h>
 #include <Wire.h>
-#include <cm1106_uart.h>
-#include <drivers/PMS5003T.h>
-#include <drivers/geiger.h>
-#include <drivers/pm1006.h>
-#include <s8_uart.h>
 #include <sps30.h>
+
+#include "sensors/SensorAHT10.hpp"
+#include "sensors/SensorAM2320.hpp"
+#include "sensors/SensorBME280.hpp"
+#include "sensors/SensorBME680.hpp"
+#include "sensors/SensorBMP280.hpp"
+#include "sensors/SensorCM1106.hpp"
+#include "sensors/SensorDFRobotGas.hpp"
+#include "sensors/SensorGCJA5.hpp"
+#include "sensors/SensorGeiger.hpp"
+#include "sensors/SensorMHZ19.hpp"
+#include "sensors/SensorNoise.hpp"
+#include "sensors/SensorPM1006.hpp"
+#include "sensors/SensorPMS5003T.hpp"
+#include "sensors/SensorSCD30.hpp"
+#include "sensors/SensorSCD4x.hpp"
+#include "sensors/SensorSDS011.hpp"
+#include "sensors/SensorSEN5x.hpp"
+#include "sensors/SensorSGP41.hpp"
+#include "sensors/SensorSHT31.hpp"
+#include "sensors/SensorSPS30.hpp"
+#include "sensors/SensorSenseAirS8.hpp"
 
 #if (defined(ARDUINO_ARCH_ESP32) &&                                               \
      (defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || \
@@ -31,19 +35,33 @@
       defined(ARDUINO_LOLIN_C3_MINI) || defined(ARDUINO_LOLIN_S2_MINI) ||         \
       defined(ARDUINO_LOLIN_S3_MINI) || defined(ESP32C3) || defined(ESP32S2) ||   \
       defined(ESP32S3))) ||                                                       \
-    defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAM)
+    defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD)
 #define CSL_NOISE_SENSOR_SUPPORTED 1
 #endif
 
+#if defined(ARDUINO_ARCH_ESP32) || defined(ESP32)
+#define CSL_NOISE_SENSOR_USE_EXTERNAL 1
+#endif
+
 #ifdef CSL_NOISE_SENSOR_SUPPORTED
-#if defined(__has_include)
-#if __has_include(<NoiseSensorI2CSlave.h>)
+#if defined(CSL_NOISE_SENSOR_USE_EXTERNAL)
 #include <NoiseSensorI2CSlave.h>
+#else
+#if defined(__has_include)
+#if __has_include("sensors/noise/NoiseSensorI2CSlave.h")
+#include "sensors/noise/NoiseSensorI2CSlave.h"
 #else
 #undef CSL_NOISE_SENSOR_SUPPORTED
 #endif
 #else
-#include <NoiseSensorI2CSlave.h>
+#include "sensors/noise/NoiseSensorI2CSlave.h"
+#endif
+#endif
+#endif
+
+#ifdef CSL_NOISE_SENSOR_SUPPORTED
+#ifndef SENSOR_TYPE_NOISE
+#define SENSOR_TYPE_NOISE 0x01
 #endif
 #endif
 
@@ -134,93 +152,9 @@
 // UART defualt port
 #define SENSOR_COMMS SERIALPORT2
 
-// Sensors units definitions (symbol/name)
-#define SENSOR_UNITS                            \
-  X(NUNIT, "NUNIT", "NUNIT")                    \
-  X(PM1, "ug/m3", "PM1")                        \
-  X(PM25, "ug/m3", "PM2.5")                     \
-  X(PM4, "ug/m3", "PM4")                        \
-  X(PM10, "ug/m3", "PM10")                      \
-  X(TEMP, "C", "T")                             \
-  X(TEMPK, "K", "T")                            \
-  X(TEMPF, "F", "T")                            \
-  X(HUM, "%", "H")                              \
-  X(CO2, "ppm", "CO2")                          \
-  X(CO2TEMP, "C", "CO2T")                       \
-  X(CO2TEMPK, "K", "CO2TK")                     \
-  X(CO2TEMPF, "F", "CO2TF")                     \
-  X(CO2HUM, "%", "CO2H")                        \
-  X(PRESS, "hPa", "P")                          \
-  X(ALT, "m", "Alt")                            \
-  X(GAS, "Ohm", "Gas")                          \
-  X(CPM, "CPM", "RAD")                          \
-  X(RAD, "uSv/h", "RAD")                        \
-  X(NH3, "ppm", "NH3")                          \
-  X(CO, "ppm", "CO")                            \
-  X(NO2, "ppm", "NO2")                          \
-  X(O3, "ppm", "O3")                            \
-  X(NOXI, "noxi", "NOXI")                       \
-  X(VOCI, "voci", "VOCI")                       \
-  X(NOX, "nox", "NOX")                          \
-  X(VOC, "voc", "VOC")                          \
-  X(NOISE, "dB", "Noise")                       \
-  X(NOISEAVG, "dB", "NoiseAvg")                 \
-  X(NOISEPEAK, "dB", "NoisePeak")               \
-  X(NOISEMIN, "dB", "NoiseMin")                 \
-  X(NOISEAVGLEGAL, "dB", "NoiseAvgLegal")       \
-  X(NOISEAVGLEGALMAX, "dB", "NoiseAvgLegalMax") \
-  X(UCOUNT, "COUNT", "UCOUNT")
+#include "SensorTypes.hpp"
 
-#define X(unit, symbol, name) unit,
-typedef enum UNIT : size_t { SENSOR_UNITS } UNIT;
-#undef X
-
-// sensors types: 1:PM, 2:CO2, 3:ENV
-#define SENSORS_TYPES     \
-  X(Auto, "GENERIC", 1)   \
-  X(SGCJA5, "GCJA5", 1)   \
-  X(SSPS30, "SPS30", 1)   \
-  X(SDS011, "SDS011", 1)  \
-  X(SMHZ19, "MHZ19", 2)   \
-  X(SCM1106, "CM1106", 2) \
-  X(SAIRS8, "SAIRS8", 2)  \
-  X(IKEAVK, "IKEAVK", 1)  \
-  X(P5003T, "PM5003T", 1) \
-  X(SSCD30, "SCD30", 2)   \
-  X(SSCD4X, "SCD4X", 2)   \
-  X(SSEN5X, "SEN5X", 1)   \
-  X(SSHT31, "SHT31", 3)   \
-  X(SBME280, "BME280", 3) \
-  X(SBMP280, "BMP280", 3) \
-  X(SBME680, "BME680", 3) \
-  X(SAHTXX, "AHTXX", 3)   \
-  X(SAM232X, "AM232X", 3) \
-  X(SDHTX, "DHTX", 3)     \
-  X(SDFRCO, "DFRCO", 3)   \
-  X(SDFRNH3, "DFRNH3", 3) \
-  X(SDFRNO2, "DFRNO2", 3) \
-  X(SDFRO3, "DFRO3", 3)   \
-  X(SCAJOE, "CAJOE", 3)   \
-  X(SSGP41, "SGP41", 3)   \
-  X(SNOISE, "NOISE", 3)   \
-  X(SCOUNT, "SCOUNT", 3)
-
-#define X(utype, uname, umaintype) utype,
-typedef enum SENSORS : size_t { SENSORS_TYPES } SENSORS;  // backward compatibility
-#undef X
-
-// MAIN SENSOR GROUPS TYPE
-enum class SensorGroup {
-  SENSOR_NONE,
-  SENSOR_PM,
-  SENSOR_CO2,
-  SENSOR_ENV,
-  SENSOR_RAD  // CAJOE_GEIGER
-};
-// TEMPERATURE UNITS
-enum class TEMPUNIT { CELSIUS, FAHRENHEIT, KELVIN };
-
-typedef void (*errorCbFn)(const char *msg);
+typedef void (*errorCbFn)(const char* msg);
 typedef void (*voidCbFn)();
 
 /**
@@ -250,73 +184,12 @@ class Sensors {
   /// Altitud hpa calculation
   float hpa = 0.0;
 
-  /// Sensirion dust SPS30 library
+  /// Sensirion dust SPS30 library (legacy path)
   SPS30 sps30;
 
-  /// Sensirion sgp41 library (Rh, T, Voc, Nox)
-  SensirionI2CSgp41 sgp41;
-  uint8_t conditioning_s = 10;
+  virtual ~Sensors();
 
-  /// only detect i2c sensors flag
-  bool i2conly;
-
-  /*****************************************
-   * I2C sensors:
-   ****************************************/
-
-  /// AM2320 object (Humidity and temperature)
-  AM232X am2320;
-  /// BME280 object (Humidity, Pressure, Altitude and Temperature)
-  Adafruit_BME280 bme280;
-  /// BMP280 object (Humidity, Pressure, Altitude and Temperature)
-  Adafruit_BMP280 bmp280;
-  /// BME680 object (Humidity, Gas, IAQ, Pressure, Altitude and Temperature)
-  Adafruit_BME680 bme680;
-  /// AHTXX sensors object
-  AHTxx aht10;
-  /// SHT31 object (Humidity and temperature)
-  Adafruit_SHT31 sht31;
-
-#ifdef DHT11_ENABLED
-  /// @deprecated DHT sensor variable
-  float dhthumi, dhttemp;
-#endif
-  /// Mhz19 object sensor
-  MHZ19 mhz19;
-  /// SCD30 object sensor
-  Adafruit_SCD30 scd30;
-  /// CM1106 UART main object sensor
-  CM1106_UART *cm1106;
-  /// CM1106 UART main variable
-  CM1106_sensor cm1106sensor;
-  /// CM1106 UART calibration object
-  CM1106_ABC abc;
-  /// Panasonic SN-GCJA5 object sensor
-  SFE_PARTICLE_SENSOR pmGCJA5;
-  /// SenseAir S8 CO2 object sensor
-  S8_UART *s8;
-  /// SenseAir S8 CO2 object sensor
-  S8_sensor s8sensor;
-  /// SCD4x object sensor
-  SensirionI2CScd4x scd4x;
-  // SEN5x sensor PM
-  SensirionI2CSen5x sen5x;
-  /// IKEA Vindriktn object sensor
-  PM1006 *pm1006;
-  /// DFRobot gravity CO object sensor addr 0x78
-  DFRobot_GAS_I2C dfrCO;
-  /// DFRobot gravity NH3 object sensor addr 0x7A
-  DFRobot_GAS_I2C dfrNH3;
-  /// DFRobot gravity NO2 object sensor add 0x7B
-  DFRobot_GAS_I2C dfrNO2;
-  /// DFRobot gravity O3 object sensor add 0x79
-  DFRobot_GAS_I2C dfrO3;
-  /// Geiger CAJOE object sensor
-  GEIGER *rad;
-  /// PMS5003T Plantower with T&H of Airgradient
-  PMS5003T *pm5003t;
-
-  void init(u_int pms_type = 0, int pms_rx = PMS_RX, int pms_tx = PMS_TX);
+  void init(unsigned int pms_type = 0, int pms_rx = PMS_RX, int pms_tx = PMS_TX);
 
   void loop();
 
@@ -412,7 +285,7 @@ class Sensors {
 
   bool isSensorRegistered(SENSORS sensor);
 
-  uint8_t *getSensorsRegistered();
+  uint8_t* getSensorsRegistered();
 
   uint8_t getSensorsRegisteredCount();
 
@@ -446,19 +319,49 @@ class Sensors {
 
   void startI2C();
 
+  // Modularized sensors
+  SensorSCD30* _sensorSCD30 = nullptr;
+  SensorSHT31* _sensorSHT31 = nullptr;
+  SensorBME280* _sensorBME280 = nullptr;
+  SensorBMP280* _sensorBMP280 = nullptr;
+  SensorBME680* _sensorBME680 = nullptr;
+  SensorAHT10* _sensorAHT10 = nullptr;
+  SensorSCD4x* _sensorSCD4x = nullptr;
+  SensorSEN5x* _sensorSEN5x = nullptr;
+  SensorSGP41* _sensorSGP41 = nullptr;
+  SensorNoise* _sensorNoise = nullptr;
+  SensorMHZ19* _sensorMHZ19 = nullptr;
+  SensorCM1106* _sensorCM1106 = nullptr;
+  SensorSenseAirS8* _sensorS8 = nullptr;
+  SensorPM1006* _sensorPM1006 = nullptr;
+  SensorPMS5003T* _sensorPMS5003T = nullptr;
+  SensorSDS011* _sensorSDS011 = nullptr;
+  SensorSPS30* _sensorSPS30 = nullptr;
+  SensorGCJA5* _sensorGCJA5 = nullptr;
+  SensorAM2320* _sensorAM2320 = nullptr;
+  SensorDFRobotGas* _sensorDFRCO = nullptr;
+  SensorDFRobotGas* _sensorDFRNH3 = nullptr;
+  SensorDFRobotGas* _sensorDFRNO2 = nullptr;
+  SensorDFRobotGas* _sensorDFRO3 = nullptr;
+  SensorGeiger* _sensorGeiger = nullptr;
+
  private:
+  ISensor* _active_sensors[SCOUNT] = {nullptr};
+  uint8_t _active_sensors_count = 0;
+  void registerSensor(ISensor* s);
 #ifdef DHT11_ENABLED
   /// DHT library
   uint32_t delayMS;
 #endif
   /// For UART sensors (autodetected available serial)
-  Stream *_serial;
+  Stream* _serial;
   /// Callback on some sensors error.
   errorCbFn _onErrorCb = nullptr;
   /// Callback when sensor data is ready.
   voidCbFn _onDataCb = nullptr;
 
   int dev_uart_type = -1;
+  bool i2conly = false;
 
   bool dataReady;
 
@@ -498,7 +401,7 @@ class Sensors {
   float o3;   // Ozone in ppm
 
 #ifdef CSL_NOISE_SENSOR_SUPPORTED
-  TwoWire *noiseWire = nullptr;
+  TwoWire* noiseWire = nullptr;
   SensorData noiseSensorData{};
   bool noiseWireReady = false;
   uint8_t noiseSensorAddress = 0;
@@ -560,7 +463,7 @@ class Sensors {
 #ifdef DHT11_ENABLED
   void dhtInit();
   void dhtRead();
-  bool dhtIsReady(float *temperature, float *humidity);
+  bool dhtIsReady(float* temperature, float* humidity);
 #endif
 
   void DFRobotNH3Init();
@@ -574,8 +477,8 @@ class Sensors {
 
   // UART sensors methods:
 
-  bool sensorSerialInit(u_int pms_type, int rx, int tx);
-  bool pmSensorAutoDetect(u_int pms_type);
+  bool sensorSerialInit(unsigned int pms_type, int rx, int tx);
+  bool pmSensorAutoDetect(unsigned int pms_type);
   bool pmSensorRead();
   bool pmGenericRead();
   bool pmGCJA5Read();
@@ -595,25 +498,25 @@ class Sensors {
   bool sps30UARTInit();
   bool sps30Read();
   bool sps30tests();
-  void sps30ErrToMess(char *mess, uint8_t r);
-  void sps30Errorloop(char *mess, uint8_t r);
+  void sps30ErrToMess(char* mess, uint8_t r);
+  void sps30Errorloop(char* mess, uint8_t r);
   void sps30DeviceInfo();
 
   void geigerRead();
 
-  void onSensorError(const char *msg);
+  void onSensorError(const char* msg);
 
   void enableWire1();
 
   void disableWire1();
 
-  bool serialInit(u_int pms_type, unsigned long speed_baud, int pms_rx, int pms_tx);
+  bool serialInit(unsigned int pms_type, unsigned long speed_baud, int pms_rx, int pms_tx);
 
-  String hwSerialRead(unsigned int lenght_buffer);
+  size_t hwSerialRead(uint8_t* buffer, size_t length);
 
   void restart();  // restart serial (it isn't works sometimes)
 
-  void DEBUG(const char *text, const char *textb = "");
+  void DEBUG(const char* text, const char* textb = "");
 
   void printValues();
 
@@ -627,23 +530,23 @@ class Sensors {
 
   void unitRegister(UNIT unit);
 
-  uint8_t *getUnitsRegistered();
+  uint8_t* getUnitsRegistered();
 
 #ifdef CSL_NOISE_SENSOR_SUPPORTED
   bool noiseSensorAutoDetect();
   void noiseSensorService();
   void noiseSensorCollect();
-  bool noiseSensorReadIdentity(TwoWire &wire, uint8_t address, SensorIdentity &out);
-  bool noiseSensorReadData(TwoWire &wire, uint8_t address, SensorData &out);
-  bool noiseSensorDevicePresent(TwoWire &wire, uint8_t address);
+  bool noiseSensorReadIdentity(TwoWire& wire, uint8_t address, SensorIdentity& out);
+  bool noiseSensorReadData(TwoWire& wire, uint8_t address, SensorData& out);
+  bool noiseSensorDevicePresent(TwoWire& wire, uint8_t address);
   void noiseSensorInitWire();
 #endif
 
 // @todo use DEBUG_ESP_PORT ?
 #ifdef WM_DEBUG_PORT
-  Stream &_debugPort = WM_DEBUG_PORT;
+  Stream& _debugPort = WM_DEBUG_PORT;
 #else
-  Stream &_debugPort = Serial;  // debug output stream ref
+  Stream& _debugPort = Serial;  // debug output stream ref
 #endif
 };
 

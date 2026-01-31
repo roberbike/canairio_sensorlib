@@ -1,4 +1,4 @@
-#include "geiger.h"
+#include "SensorGeiger.hpp"
 
 #ifdef ESP32
 hw_timer_t* geiger_timer = NULL;
@@ -31,7 +31,7 @@ void IRAM_ATTR onGeigerTimer() {
 
 // #########################################################################
 // Initialize Geiger counter
-GEIGER::GEIGER(int gpio, bool debug) {
+SensorGeiger::SensorGeiger(int gpio, bool debug) : _gpio(gpio) {
 #ifdef ESP32
   devmode = debug;
   tics_cnt = 0U;  // tics in 1000ms
@@ -43,18 +43,29 @@ GEIGER::GEIGER(int gpio, bool debug) {
   // moving sum for CAJOE Geiger Counter, configured for 60 samples (1 sample every 1s * 60 samples
   // = 60s)
   cajoe_fms = new MovingSum<uint16_t, uint32_t>(GEIGER_BUFSIZE);
+#endif
+}
 
-  Serial.printf("-->[SLIB] Geiger startup on pin\t: %i\r\n", gpio);
+bool SensorGeiger::init() {
+#ifdef ESP32
+    if (_gpio < 0) return false;
+    
+    Serial.printf("-->[SLIB] Geiger startup on pin\\t: %i\\r\\n", _gpio);
 
-  // attach interrupt routine to the GPI connected to the Geiger counter module
-  pinMode(gpio, INPUT);
-  attachInterrupt(digitalPinToInterrupt(gpio), GeigerTicISR, FALLING);
+    // attach interrupt routine to the GPI connected to the Geiger counter module
+    pinMode(_gpio, INPUT);
+    attachInterrupt(digitalPinToInterrupt(_gpio), GeigerTicISR, FALLING);
 
-  // attach interrupt routine to internal timer, to fire every 1000 ms
-  geiger_timer = timerBegin(GEIGER_TIMER, 80, true);
-  timerAttachInterrupt(geiger_timer, &onGeigerTimer, true);
-  timerAlarmWrite(geiger_timer, 1000000, true);  // 1000 ms
-  timerAlarmEnable(geiger_timer);
+    // attach interrupt routine to internal timer, to fire every 1000 ms
+    geiger_timer = timerBegin(GEIGER_TIMER, 80, true);
+    timerAttachInterrupt(geiger_timer, &onGeigerTimer, true);
+    timerAlarmWrite(geiger_timer, 1000000, true);  // 1000 ms
+    timerAlarmEnable(geiger_timer);
+    
+    _available = true;
+    return true;
+#else
+    return false;
 #endif
 }
 
@@ -62,7 +73,7 @@ GEIGER::GEIGER(int gpio, bool debug) {
 // Geiger counts evaluation
 // CAJOE kit comes with a Chinese J305 geiger tube
 // Conversion factor used for conversion from CPM to uSv/h is 0.008120370 (J305 tube)
-bool GEIGER::read() {
+bool SensorGeiger::read() {
 #ifdef ESP32
   if (geiger_timer == NULL) return false;
   bool ready;
@@ -87,11 +98,11 @@ bool GEIGER::read() {
 
 #ifdef CORE_DEBUG_LEVEL
   if (CORE_DEBUG_LEVEL >= 3) {
-    Serial.printf("-->[SLIB] tTOT:\t %i\r\n", tics_tot);
-    Serial.printf("-->[SLIB] tLEN:\t %i ", tics_len);
+    Serial.printf("-->[SLIB] tTOT:\\t %i\\r\\n", tics_tot);
+    Serial.printf("-->[SLIB] tLEN:\\t %i ", tics_len);
     Serial.println(ready ? "(ready)" : "(not ready)");
-    Serial.printf("-->[SLIB] tCPM:\t %i\r\n", tics_cpm);
-    Serial.printf("-->[SLIB] uSvh:\t %04.2f\r\n", uSvh);
+    Serial.printf("-->[SLIB] tCPM:\\t %i\\r\\n", tics_cpm);
+    Serial.printf("-->[SLIB] uSvh:\\t %04.2f\\r\\n", uSvh);
   }
 #endif
   return true;
@@ -100,16 +111,7 @@ bool GEIGER::read() {
 #endif
 }
 
-/**
- * Converts CPM to uSv/h units (J305 tube)
- */
-float GEIGER::getUSvh() { return float(this->tics_cpm) * J305_CONV_FACTOR; }
-/**
- * Returns CPM
- */
-uint32_t GEIGER::getTics() { return this->tics_cpm; }
-
-void GEIGER::clear() {
+void SensorGeiger::clear() {
   tics_cpm = 0;
   uSvh = 0.0;
 #ifdef ESP32
