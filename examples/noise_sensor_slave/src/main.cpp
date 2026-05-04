@@ -2,8 +2,8 @@
  * ESP32 (MASTER) - Escaneo y lectura I2C de sensor de ruido
  *
  * Requisitos del usuario:
- * - SDA = GPIO 8
- * - SCL = GPIO 9
+ * - SDA = GPIO 21
+ * - SCL = GPIO 22
  * - Buscar la dirección I2C del sensor y decir si está conectado
  *
  * Nota importante (para el problema "muestra valores con el esclavo apagado"):
@@ -17,8 +17,8 @@
 #include "drivers/NoiseSlave.h"
 
 // Configuración I2C (master)
-static constexpr uint8_t SDA_PIN = 8;
-static constexpr uint8_t SCL_PIN = 9;
+static constexpr uint8_t SDA_PIN = 21;
+static constexpr uint8_t SCL_PIN = 22;
 static constexpr uint32_t I2C_FREQ_HZ = 100000;  // 100kHz
 
 static uint8_t sensorAddress = 0;
